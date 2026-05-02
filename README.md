@@ -61,10 +61,10 @@ See the [releases page](https://github.com/dayeggpi/RGB-PC-evolution/releases)
 ```
 clone repo
 npm install
-npm run start
+npm run dev
 
 #building the app , change targets in vue.config.js
-npm run evolution:build
+npm run electron:build
 ```
 
 ## Contributing and issues
