@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, desktopCapturer, Menu, Tray, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, desktopCapturer, Menu, Tray, nativeImage, globalShortcut } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import sharp from 'sharp'
@@ -78,6 +78,24 @@ ipcMain.handle('processFrame', async (_, { frameBase64, crops }) => {
 })
 
 ipcMain.handle('openExternal', (_, url) => shell.openExternal(url))
+
+// Convert app hotkey format (from DOM events) to Electron accelerator format
+function toAccelerator(hotkey) {
+  const map = { Meta: 'Super', Enter: 'Return', ' ': 'Space', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right' }
+  return hotkey.split('+').map(p => map[p] ?? p).join('+')
+}
+
+ipcMain.handle('registerGlobalShortcuts', (_, shortcuts) => {
+  globalShortcut.unregisterAll()
+  for (const { combo, action } of shortcuts) {
+    if (!combo) continue
+    try {
+      globalShortcut.register(toAccelerator(combo), () => {
+        BrowserWindow.getAllWindows().forEach(w => w.webContents.send('shortcutTriggered', action))
+      })
+    } catch { /* invalid accelerator — skip */ }
+  }
+})
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -166,6 +184,8 @@ async function createWindow() {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+
+app.on('will-quit', () => globalShortcut.unregisterAll())
 
 // Window is hidden, not closed — this event won't fire during normal use
 app.on('window-all-closed', () => {

@@ -65,6 +65,22 @@ electron.ipcMain.handle("processFrame", async (_, { frameBase64, crops }) => {
   return segData;
 });
 electron.ipcMain.handle("openExternal", (_, url) => electron.shell.openExternal(url));
+function toAccelerator(hotkey) {
+  const map = { Meta: "Super", Enter: "Return", " ": "Space", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right" };
+  return hotkey.split("+").map((p) => map[p] ?? p).join("+");
+}
+electron.ipcMain.handle("registerGlobalShortcuts", (_, shortcuts) => {
+  electron.globalShortcut.unregisterAll();
+  for (const { combo, action } of shortcuts) {
+    if (!combo) continue;
+    try {
+      electron.globalShortcut.register(toAccelerator(combo), () => {
+        electron.BrowserWindow.getAllWindows().forEach((w) => w.webContents.send("shortcutTriggered", action));
+      });
+    } catch {
+    }
+  }
+});
 function getIconPath() {
   return electron.app.isPackaged ? path.join(process.resourcesPath, "rgb.ico") : path.join(__dirname, "../../rgb.ico");
 }
@@ -134,6 +150,7 @@ async function createWindow() {
     win.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 }
+electron.app.on("will-quit", () => electron.globalShortcut.unregisterAll());
 electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") electron.app.quit();
 });

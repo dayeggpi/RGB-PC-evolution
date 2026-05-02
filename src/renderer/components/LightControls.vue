@@ -48,6 +48,35 @@
         <div>
           <label class="form-label text-light small">Brightness: {{ brightness }}%</label>
           <input type="range" min="1" max="100" class="form-range" v-model.number="brightness" @change="applyBrightness" />
+          <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+            <span class="text-secondary" style="font-size:10px">Brightness shortcuts:</span>
+            <div class="d-flex align-items-center gap-1">
+              <span class="text-secondary" style="font-size:10px">+10%</span>
+              <button
+                class="btn btn-xs"
+                :class="assigningBrightnessFor==='up' ? 'btn-warning' : 'btn-outline-secondary'"
+                @click="startAssignBrightnessHotkey('up')"
+              >{{ assigningBrightnessFor==='up' ? 'Press…' : (brightnessUpHotkey || '+ key') }}</button>
+              <button
+                v-if="assigningBrightnessFor==='up' || brightnessUpHotkey"
+                class="btn btn-xs btn-outline-secondary"
+                @click="cancelOrClearBrightnessHotkey('up')"
+              >×</button>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <span class="text-secondary" style="font-size:10px">−10%</span>
+              <button
+                class="btn btn-xs"
+                :class="assigningBrightnessFor==='down' ? 'btn-warning' : 'btn-outline-secondary'"
+                @click="startAssignBrightnessHotkey('down')"
+              >{{ assigningBrightnessFor==='down' ? 'Press…' : (brightnessDownHotkey || '+ key') }}</button>
+              <button
+                v-if="assigningBrightnessFor==='down' || brightnessDownHotkey"
+                class="btn btn-xs btn-outline-secondary"
+                @click="cancelOrClearBrightnessHotkey('down')"
+              >×</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -70,7 +99,7 @@
       <!-- ── PALETTES TAB ── -->
       <div v-if="tab==='palettes'">
         <div class="d-flex align-items-baseline gap-2 mb-2">
-          <p class="text-secondary small mb-0">Save current segment colors. Hotkeys support combos (e.g. Shift+Alt+H).</p>
+          <p class="text-secondary small mb-0">Save current segment colors. Hotkeys are system-wide (e.g. Shift+Alt+H).</p>
           <span v-if="palettesPath" class="text-secondary ms-auto" style="font-size:9px;white-space:nowrap;opacity:0.6" :title="palettesPath">{{ palettesPath }}</span>
         </div>
         <div class="palette-grid">
@@ -154,9 +183,6 @@ function formatHotkey(e) {
   return parts.join('+')
 }
 
-function matchesHotkey(e, hotkey) {
-  return formatHotkey(e) === hotkey
-}
 
 export default {
   name: 'LightControls',
@@ -173,8 +199,11 @@ export default {
     brightness:         100,
     palettes:           defaultPalettes(),
     activePalette:      null,
-    assigningFor:       null,
-    palettesPath:       null,
+    assigningFor:           null,
+    brightnessUpHotkey:     null,
+    brightnessDownHotkey:   null,
+    assigningBrightnessFor: null,
+    palettesPath:           null,
   }),
   watch: {
     // When group buttons (All/None/Left/Right/Strip) change identifiedSegments,
@@ -275,32 +304,67 @@ export default {
 
     handleKeydown(e) {
       if (this.assigningFor !== null) {
-        if (e.key === 'Escape') {
-          this.assigningFor = null  // cancel on Escape
-          return
-        }
+        if (e.key === 'Escape') { this.assigningFor = null; return }
         const combo = formatHotkey(e)
-        if (!combo) return  // pure modifier press — keep waiting
+        if (!combo) return
         e.preventDefault()
         this.palettes[this.assigningFor].hotkey = combo
         this.assigningFor = null
         this.savePalettes()
         return
       }
-      // Global palette hotkey trigger
-      const idx = this.palettes.findIndex(p => p.hotkey && matchesHotkey(e, p.hotkey))
-      if (idx !== -1) {
+      if (this.assigningBrightnessFor !== null) {
+        if (e.key === 'Escape') { this.assigningBrightnessFor = null; return }
+        const combo = formatHotkey(e)
+        if (!combo) return
         e.preventDefault()
-        this.loadPalette(idx)
+        if (this.assigningBrightnessFor === 'up') this.brightnessUpHotkey = combo
+        else this.brightnessDownHotkey = combo
+        this.assigningBrightnessFor = null
+        this.savePalettes()
+      }
+    },
+
+    registerGlobalShortcuts() {
+      const shortcuts = []
+      this.palettes.forEach((p, idx) => {
+        if (p.hotkey) shortcuts.push({ combo: p.hotkey, action: { type: 'palette', idx } })
+      })
+      if (this.brightnessUpHotkey)   shortcuts.push({ combo: this.brightnessUpHotkey,   action: { type: 'brightnessUp'   } })
+      if (this.brightnessDownHotkey) shortcuts.push({ combo: this.brightnessDownHotkey, action: { type: 'brightnessDown' } })
+      window.electronAPI.invoke('registerGlobalShortcuts', shortcuts).catch(() => {})
+    },
+
+    async adjustBrightness(delta) {
+      this.brightness = Math.min(100, Math.max(1, this.brightness + delta))
+      await this.strip.setBrightness(this.brightness)
+    },
+
+    startAssignBrightnessHotkey(dir) {
+      this.assigningBrightnessFor = dir
+    },
+
+    cancelOrClearBrightnessHotkey(dir) {
+      if (this.assigningBrightnessFor === dir) {
+        this.assigningBrightnessFor = null
+      } else {
+        if (dir === 'up') this.brightnessUpHotkey = null
+        else this.brightnessDownHotkey = null
+        this.savePalettes()
       }
     },
 
     savePalettes() {
       // JSON round-trip strips Vue Proxy wrappers before structured-clone over IPC
       const plain = JSON.parse(JSON.stringify(this.palettes))
-      window.electronAPI.invoke('savePalettes', plain)
+      const data = {
+        palettes: plain,
+        settings: { brightnessUpHotkey: this.brightnessUpHotkey, brightnessDownHotkey: this.brightnessDownHotkey },
+      }
+      window.electronAPI.invoke('savePalettes', data)
         .then(savedPath => { if (savedPath) this.palettesPath = savedPath })
         .catch(e => alert(`Failed to save palettes:\n${e?.message || e}`))
+      this.registerGlobalShortcuts()
     },
   },
   async mounted() {
@@ -309,14 +373,27 @@ export default {
         window.electronAPI.invoke('loadPalettes'),
         window.electronAPI.invoke('getPalettesPath'),
       ])
-      if (Array.isArray(loaded) && loaded.length === 10) this.palettes = loaded
+      if (loaded) {
+        const palettesData = Array.isArray(loaded) ? loaded : loaded.palettes
+        const settings     = Array.isArray(loaded) ? {} : (loaded.settings || {})
+        if (Array.isArray(palettesData) && palettesData.length === 10) this.palettes = palettesData
+        this.brightnessUpHotkey   = settings.brightnessUpHotkey   || null
+        this.brightnessDownHotkey = settings.brightnessDownHotkey || null
+      }
       this.palettesPath = path
     } catch { /**/ }
+    this.registerGlobalShortcuts()
+    this._shortcutOff = window.electronAPI.on('shortcutTriggered', (action) => {
+      if (action.type === 'palette')       this.loadPalette(action.idx)
+      else if (action.type === 'brightnessUp')   this.adjustBrightness(10)
+      else if (action.type === 'brightnessDown') this.adjustBrightness(-10)
+    })
     this._keyHandler = this.handleKeydown.bind(this)
     document.addEventListener('keydown', this._keyHandler)
   },
   beforeUnmount() {
     document.removeEventListener('keydown', this._keyHandler)
+    if (this._shortcutOff) this._shortcutOff()
   },
 }
 </script>
