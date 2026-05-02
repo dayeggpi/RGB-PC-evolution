@@ -6,7 +6,6 @@ RGB-PC-evolution is a bluetooth based client for Govee LED strips (specifically 
 This is based on reverse engineering the requests from android and translating them to PC. Thanks to [BeauJBurroughs/Govee-H6127-Reverse-Engineering](https://github.com/BeauJBurroughs/Govee-H6127-Reverse-Engineering) and [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering)
 
 <img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_48DlYu8bhk.png">
-<img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_FNFEcAu1Wl.png">
 <img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_vzkXTXpVvi.png">
 
 
