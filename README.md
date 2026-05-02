@@ -1,20 +1,24 @@
-# RGB-PC
+# RGB-PC-evolution
 
 ## Introduction
 
-RGB-PC is a bluetooth based client for Govee LED strips. This is based on reverse engineering the requests from android and translating them to PC. Thanks to [BeauJBurroughs/Govee-H6127-Reverse-Engineering](https://github.com/BeauJBurroughs/Govee-H6127-Reverse-Engineering) and [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering)
+RGB-PC-evolution is a bluetooth based client for Govee LED strips (specifically the Govee Dreamview G1 Pro) based on the amazing work from https://github.com/ib0b/RGB-PC.
+This is based on reverse engineering the requests from android and translating them to PC. Thanks to [BeauJBurroughs/Govee-H6127-Reverse-Engineering](https://github.com/BeauJBurroughs/Govee-H6127-Reverse-Engineering) and [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering)
 
-<img width="1116" alt="image" src="https://user-images.githubusercontent.com/18010106/191063691-08d27f1a-8714-44f3-9e35-912833e3f391.png">
+<img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_48DlYu8bhk.png">
+<img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_FNFEcAu1Wl.png">
+<img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_vzkXTXpVvi.png">
+
 
 ### Features
 
 - [x] Keep alive
 - [x] On/Off toggle
-- [x] Change Color
+- [x] Change Color (per segment, or full)
+- [x] Save palettes
 - [x] Set global brightness
-- [x] Music Modes
-- [x] Change Scenes
-- [x] Send Custom Command
+- [ ] Music Modes (WIP)
+- [ ] Change Scenes (WIP)
 - [x] Sync Colors to your display border,each segement with different focus area. <em>~Experimental</em>
 
 ---
@@ -29,12 +33,12 @@ If @Govee you would like me to take this down, please contact me view email or c
 
 ## Download
 
-See the [releases page](https://github.com/ib0b/RGB-PC/releases)
+See the [releases page](https://github.com/dayeggpi/RGB-PC-evolution/releases)
 
 ## How to Use
 
 <ol>
-  <li>Open RGB-PC</li>
+  <li>Open RGB-PC-evolution</li>
   <li>Click scan, you should have a bluetooth enable PC/Laptop</li>
   <li>Connect to you govee device.</li>
   <li>A menu should appear with the settings of the led controller.</li>
@@ -60,7 +64,7 @@ npm install
 npm run start
 
 #building the app , change targets in vue.config.js
-npm run build
+npm run evolution:build
 ```
 
 ## Contributing and issues
