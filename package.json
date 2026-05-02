@@ -1,62 +1,61 @@
 {
   "name": "rgb",
-  "version": "1.0.0",
+  "version": "2.0.1",
   "private": true,
   "description": "RGB-PC is a LED client for PC for Govee lights",
+  "main": "out/main/index.js",
   "scripts": {
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint",
-    "electron:build": "vue-cli-service electron:build",
-    "publish": "vue-cli-service electron:build",
-    "electron:serve": "vue-cli-service electron:serve",
-    "start": "vue-cli-service electron:serve",
-    "postinstall": "electron-builder install-app-deps",
-    "postuninstall": "electron-builder install-app-deps"
+    "dev": "electron-vite dev",
+    "start": "electron-vite dev",
+    "build": "electron-vite build",
+    "electron:build": "electron-vite build && electron-builder",
+    "publish": "electron-vite build && electron-builder",
+    "postinstall": "electron-builder install-app-deps"
   },
-  "main": "background.js",
+  "build": {
+    "productName": "RGB-PC-evolution",
+    "appId": "com.rgb.pcevolution",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "extraResources": [
+      { "from": "rgb.ico", "to": "rgb.ico" }
+    ],
+    "win": {
+      "icon": "./rgb.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "ia32"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "./rgb.ico"
+    }
+  },
   "dependencies": {
     "@popperjs/core": "^2.11.6",
     "@simonwep/pickr": "^1.8.2",
     "bootstrap": "^5.2.0",
-    "core-js": "^3.8.3",
-    "sharp": "^0.30.7",
-    "vue": "^3.2.13",
+    "sharp": "^0.34.5",
+    "vue": "^3.5.0",
     "vue-slider-component": "^4.1.0-beta.2"
   },
   "devDependencies": {
-    "@babel/core": "^7.12.16",
-    "@babel/eslint-parser": "^7.12.16",
-    "@vue/cli-plugin-babel": "~5.0.0",
-    "@vue/cli-plugin-eslint": "~5.0.0",
-    "@vue/cli-service": "~5.0.0",
-    "electron": "^13.0.0",
-    "electron-devtools-installer": "^3.1.0",
-    "eslint": "^7.32.0",
-    "eslint-plugin-vue": "^8.0.3",
-    "vue-cli-plugin-electron-builder": "~2.1.1"
-  },
-  "eslintConfig": {
-    "root": true,
-    "env": {
-      "node": true
-    },
-    "extends": [
-      "plugin:vue/vue3-essential",
-      "eslint:recommended"
-    ],
-    "parserOptions": {
-      "parser": "@babel/eslint-parser"
-    },
-    "rules": {
-      "no-unused-vars": "off",
-      "no-unreachable": "off"
-    }
-  },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not dead",
-    "not ie 11"
-  ]
+    "@vitejs/plugin-vue": "^5.0.0",
+    "electron": "^41.4.0",
+    "electron-builder": "^26.8.1",
+    "electron-vite": "^3.1.0",
+    "vite": "^6.4.2"
+  }
 }
