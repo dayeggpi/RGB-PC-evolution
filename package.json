@@ -1,6 +1,6 @@
 {
   "name": "rgb",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "private": true,
   "description": "RGB-PC is a LED client for PC for Govee lights",
   "main": "out/main/index.js",

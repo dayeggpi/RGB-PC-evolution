@@ -56,7 +56,8 @@ electron.ipcMain.handle("processFrame", async (_, { frameBase64, crops }) => {
   for (const [segKey, { left, top, width, height }] of Object.entries(crops)) {
     try {
       const cropped = await sharp(buffer).extract({ left, top, width, height }).toBuffer();
-      const { dominant } = await sharp(cropped).stats();
+      const boosted = await sharp(cropped).modulate({ saturation: 2.5 }).toBuffer();
+      const { dominant } = await sharp(boosted).stats();
       segData[segKey] = `#${hex(dominant.r)}${hex(dominant.g)}${hex(dominant.b)}`;
     } catch {
       segData[segKey] = "#000000";

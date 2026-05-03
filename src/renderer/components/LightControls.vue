@@ -77,6 +77,35 @@
               >×</button>
             </div>
           </div>
+          <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+            <span class="text-secondary" style="font-size:10px">Light shortcuts:</span>
+            <div class="d-flex align-items-center gap-1">
+              <span class="text-secondary" style="font-size:10px">On</span>
+              <button
+                class="btn btn-xs"
+                :class="assigningLightFor==='on' ? 'btn-warning' : 'btn-outline-secondary'"
+                @click="startAssignLightHotkey('on')"
+              >{{ assigningLightFor==='on' ? 'Press…' : (lightOnHotkey || '+ key') }}</button>
+              <button
+                v-if="assigningLightFor==='on' || lightOnHotkey"
+                class="btn btn-xs btn-outline-secondary"
+                @click="cancelOrClearLightHotkey('on')"
+              >×</button>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <span class="text-secondary" style="font-size:10px">Off</span>
+              <button
+                class="btn btn-xs"
+                :class="assigningLightFor==='off' ? 'btn-warning' : 'btn-outline-secondary'"
+                @click="startAssignLightHotkey('off')"
+              >{{ assigningLightFor==='off' ? 'Press…' : (lightOffHotkey || '+ key') }}</button>
+              <button
+                v-if="assigningLightFor==='off' || lightOffHotkey"
+                class="btn btn-xs btn-outline-secondary"
+                @click="cancelOrClearLightHotkey('off')"
+              >×</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -131,8 +160,8 @@
             />
             <div class="d-flex gap-1 flex-wrap">
               <button class="btn btn-xs btn-outline-primary"   @click="loadPalette(idx)">Load</button>
-              <button class="btn btn-xs btn-outline-secondary" @click="saveToPalette(idx)">Save</button>
-              <button class="btn btn-xs btn-outline-danger"    @click="clearPalette(idx)">Clear</button>
+              <button class="btn btn-xs btn-outline-secondary" @click="confirmSaveToPalette(idx)">Save</button>
+              <button class="btn btn-xs btn-outline-danger"    @click="confirmClearPalette(idx)">Clear</button>
               <button
                 class="btn btn-xs"
                 :class="assigningFor === idx ? 'btn-warning' : 'btn-outline-secondary'"
@@ -203,6 +232,9 @@ export default {
     brightnessUpHotkey:     null,
     brightnessDownHotkey:   null,
     assigningBrightnessFor: null,
+    lightOnHotkey:          null,
+    lightOffHotkey:         null,
+    assigningLightFor:      null,
     palettesPath:           null,
   }),
   watch: {
@@ -255,6 +287,18 @@ export default {
     clearIdentified() {
       // Send black to all identified before clearing (watcher handles it)
       this.identifiedSegments = []
+    },
+
+    confirmSaveToPalette(idx) {
+      const name = this.palettes[idx].name || `Palette ${idx + 1}`
+      if (!confirm(`Overwrite "${name}" with current colors?`)) return
+      this.saveToPalette(idx)
+    },
+
+    confirmClearPalette(idx) {
+      const name = this.palettes[idx].name || `Palette ${idx + 1}`
+      if (!confirm(`Clear "${name}"? This cannot be undone.`)) return
+      this.clearPalette(idx)
     },
 
     saveToPalette(idx) {
@@ -322,6 +366,17 @@ export default {
         else this.brightnessDownHotkey = combo
         this.assigningBrightnessFor = null
         this.savePalettes()
+        return
+      }
+      if (this.assigningLightFor !== null) {
+        if (e.key === 'Escape') { this.assigningLightFor = null; return }
+        const combo = formatHotkey(e)
+        if (!combo) return
+        e.preventDefault()
+        if (this.assigningLightFor === 'on') this.lightOnHotkey = combo
+        else this.lightOffHotkey = combo
+        this.assigningLightFor = null
+        this.savePalettes()
       }
     },
 
@@ -332,6 +387,8 @@ export default {
       })
       if (this.brightnessUpHotkey)   shortcuts.push({ combo: this.brightnessUpHotkey,   action: { type: 'brightnessUp'   } })
       if (this.brightnessDownHotkey) shortcuts.push({ combo: this.brightnessDownHotkey, action: { type: 'brightnessDown' } })
+      if (this.lightOnHotkey)        shortcuts.push({ combo: this.lightOnHotkey,         action: { type: 'lightOn'        } })
+      if (this.lightOffHotkey)       shortcuts.push({ combo: this.lightOffHotkey,        action: { type: 'lightOff'       } })
       window.electronAPI.invoke('registerGlobalShortcuts', shortcuts).catch(() => {})
     },
 
@@ -354,16 +411,45 @@ export default {
       }
     },
 
-    savePalettes() {
+    startAssignLightHotkey(dir) {
+      this.assigningLightFor = dir
+    },
+
+    cancelOrClearLightHotkey(dir) {
+      if (this.assigningLightFor === dir) {
+        this.assigningLightFor = null
+      } else {
+        if (dir === 'on') this.lightOnHotkey = null
+        else this.lightOffHotkey = null
+        this.savePalettes()
+      }
+    },
+
+    async savePalettes() {
       // JSON round-trip strips Vue Proxy wrappers before structured-clone over IPC
       const plain = JSON.parse(JSON.stringify(this.palettes))
+      // Always re-read current settings so we don't overwrite fields we don't own (e.g. syncMapping written by LightSync)
+      let currentSettings = {}
+      try {
+        const current = await window.electronAPI.invoke('loadPalettes')
+        if (current && !Array.isArray(current)) currentSettings = current.settings || {}
+      } catch { /* ignore — proceed with empty base */ }
       const data = {
         palettes: plain,
-        settings: { brightnessUpHotkey: this.brightnessUpHotkey, brightnessDownHotkey: this.brightnessDownHotkey },
+        settings: {
+          ...currentSettings,
+          brightnessUpHotkey:   this.brightnessUpHotkey,
+          brightnessDownHotkey: this.brightnessDownHotkey,
+          lightOnHotkey:        this.lightOnHotkey,
+          lightOffHotkey:       this.lightOffHotkey,
+        },
       }
-      window.electronAPI.invoke('savePalettes', data)
-        .then(savedPath => { if (savedPath) this.palettesPath = savedPath })
-        .catch(e => alert(`Failed to save palettes:\n${e?.message || e}`))
+      try {
+        const savedPath = await window.electronAPI.invoke('savePalettes', data)
+        if (savedPath) this.palettesPath = savedPath
+      } catch (e) {
+        alert(`Failed to save palettes:\n${e?.message || e}`)
+      }
       this.registerGlobalShortcuts()
     },
   },
@@ -379,14 +465,18 @@ export default {
         if (Array.isArray(palettesData) && palettesData.length === 10) this.palettes = palettesData
         this.brightnessUpHotkey   = settings.brightnessUpHotkey   || null
         this.brightnessDownHotkey = settings.brightnessDownHotkey || null
+        this.lightOnHotkey        = settings.lightOnHotkey        || null
+        this.lightOffHotkey       = settings.lightOffHotkey       || null
       }
       this.palettesPath = path
     } catch { /**/ }
     this.registerGlobalShortcuts()
     this._shortcutOff = window.electronAPI.on('shortcutTriggered', (action) => {
-      if (action.type === 'palette')       this.loadPalette(action.idx)
-      else if (action.type === 'brightnessUp')   this.adjustBrightness(10)
+      if      (action.type === 'palette')       this.loadPalette(action.idx)
+      else if (action.type === 'brightnessUp')  this.adjustBrightness(10)
       else if (action.type === 'brightnessDown') this.adjustBrightness(-10)
+      else if (action.type === 'lightOn')       this.turnOn()
+      else if (action.type === 'lightOff')      this.turnOff()
     })
     this._keyHandler = this.handleKeydown.bind(this)
     document.addEventListener('keydown', this._keyHandler)

@@ -73,6 +73,7 @@
                 class="slot-input"
                 :value="slotVal(side, i-1)"
                 @change="setSlot(side, i-1, $event.target.value)"
+                :disabled="strip.syncMode"
               />
             </div>
           </div>
@@ -159,28 +160,45 @@ export default {
       this.cap.segments.bottom = this.filledSlots('bottom')
     },
 
-    saveMapping() {
+    async saveMapping() {
       localStorage.setItem(MAPPING_KEY, JSON.stringify(this.mapping))
+      try {
+        let data = await window.electronAPI.invoke('loadPalettes')
+        if (!data) data = { palettes: [], settings: {} }
+        else if (Array.isArray(data)) data = { palettes: data, settings: {} }
+        const plainMapping = JSON.parse(JSON.stringify(this.mapping))
+        data.settings = { ...(data.settings || {}), syncMapping: plainMapping }
+        await window.electronAPI.invoke('savePalettes', data)
+      } catch { /* localStorage still saved */ }
       this.applyMapping()
     },
 
-    loadMapping() {
+    _applyLoadedMapping(m) {
+      const empty = emptySlots()
+      for (const side of ['top','left','right','bottom']) {
+        if (Array.isArray(m[side])) {
+          const arr = Array(6).fill(null)
+          m[side].forEach((v, i) => { if (i < 6) arr[i] = v })
+          empty[side] = arr
+        }
+      }
+      this.mapping = empty
+    },
+
+    async loadMapping() {
+      try {
+        const data = await window.electronAPI.invoke('loadPalettes')
+        if (data && !Array.isArray(data) && data.settings?.syncMapping) {
+          this._applyLoadedMapping(data.settings.syncMapping)
+          return  // already persisted in palettes.json
+        }
+      } catch { /* fall through */ }
+      // Not in palettes.json yet — load from localStorage then immediately persist
       const saved = localStorage.getItem(MAPPING_KEY)
       if (saved) {
-        try {
-          const m = JSON.parse(saved)
-          // Migrate: ensure each side is a 6-element array
-          const empty = emptySlots()
-          for (const side of ['top','left','right','bottom']) {
-            if (Array.isArray(m[side])) {
-              const arr = Array(6).fill(null)
-              m[side].forEach((v, i) => { if (i < 6) arr[i] = v })
-              empty[side] = arr
-            }
-          }
-          this.mapping = empty
-        } catch { /**/ }
+        try { this._applyLoadedMapping(JSON.parse(saved)) } catch { /**/ }
       }
+      await this.saveMapping()  // migrate to palettes.json (also handles empty mapping on first run)
     },
 
     clearSlots() {
@@ -192,8 +210,8 @@ export default {
       this.screens = await electronAPI.invoke('getDesktopSources')
     },
   },
-  mounted() {
-    this.loadMapping()
+  async mounted() {
+    await this.loadMapping()
     this.getScreens()
   },
   beforeUnmount() {
@@ -254,6 +272,7 @@ export default {
   text-align: center;
 }
 .slot-input:focus { outline: 1px solid #0d6efd; border-color: #0d6efd; }
+.slot-input:disabled { opacity: 0.4; cursor: not-allowed; }
 .slot-input::-webkit-outer-spin-button,
 .slot-input::-webkit-inner-spin-button { -webkit-appearance: none; }
 .slot-input[type=number] { -moz-appearance: textfield; }
