@@ -155,6 +155,12 @@ class Strip {
     )
   }
 
+  async sendRaw(bytes) {
+    await this._enqueue(() =>
+      this.characteristic.writeValueWithoutResponse(bytes)
+    )
+  }
+
   async setScene(command) {
     this.colorMode = false
     const hex = commands[command]

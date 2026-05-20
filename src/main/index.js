@@ -86,16 +86,31 @@ function toAccelerator(hotkey) {
   return hotkey.split('+').map(p => map[p] ?? p).join('+')
 }
 
-ipcMain.handle('registerGlobalShortcuts', (_, shortcuts) => {
-  globalShortcut.unregisterAll()
+// group → Set of registered accelerator strings
+const shortcutGroups = new Map()
+
+ipcMain.handle('registerGlobalShortcuts', (_, groupId, shortcuts) => {
+  // Unregister only this group's old entries
+  if (shortcutGroups.has(groupId)) {
+    for (const acc of shortcutGroups.get(groupId)) {
+      try { globalShortcut.unregister(acc) } catch {}
+    }
+  }
+  const registered = []
+  const failed = []
   for (const { combo, action } of shortcuts) {
     if (!combo) continue
+    const acc = toAccelerator(combo)
     try {
-      globalShortcut.register(toAccelerator(combo), () => {
+      const ok = globalShortcut.register(acc, () => {
         BrowserWindow.getAllWindows().forEach(w => w.webContents.send('shortcutTriggered', action))
       })
-    } catch { /* invalid accelerator — skip */ }
+      if (ok) registered.push(acc)
+      else failed.push(combo)
+    } catch { failed.push(combo) }
   }
+  shortcutGroups.set(groupId, registered)
+  return { failed }
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,6 +138,8 @@ async function createWindow() {
   })
 
   // Block reload / devtools shortcuts
+  win.webContents.setBackgroundThrottling(false)
+
   win.webContents.on('before-input-event', (event, input) => {
     const ctrl = input.control || input.meta
     const k = input.key.toLowerCase()

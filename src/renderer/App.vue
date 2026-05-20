@@ -7,6 +7,13 @@
       <span class="status-dot" :class="statusClass" :title="statusLabel"></span>
       <span class="text-light small">{{ statusLabel }}</span>
       <span v-if="strip" class="text-secondary small">— {{ strip.device.name }}</span>
+      <span
+        v-if="strip && realMac"
+        class="text-secondary small font-monospace ms-1"
+        :title="macCopied ? 'Copied!' : 'Click to copy MAC'"
+        style="cursor:pointer; opacity:0.6"
+        @click="copyMac"
+      >{{ realMac }}</span>
       <div class="ms-auto d-flex gap-2 align-items-center">
         <button
           v-if="!strip"
@@ -40,14 +47,12 @@
 
     <template v-if="strip">
       <LightControls :strip="strip" />
-      <LightSync :strip="strip" class="mt-3" />
     </template>
   </div>
 </template>
 
 <script>
 import LightControls from './components/LightControls.vue'
-import LightSync from './components/LightSync.vue'
 import Strip from './models/Strip'
 
 const { electronAPI } = window
@@ -55,13 +60,15 @@ const LAST_DEVICE_KEY = 'govee_last_device'
 
 export default {
   name: 'App',
-  components: { LightControls, LightSync },
+  components: { LightControls },
   data: () => ({
     devices: [],
     selectedDeviceId: '',
     strip: null,
     scanning: false,
     connected: false,
+    macCopied: false,
+    realMac: null,
   }),
   computed: {
     statusClass() {
@@ -96,6 +103,7 @@ export default {
       this.scanning = false
     },
     connectSelected() {
+      this.realMac = this.selectedDeviceId
       electronAPI.send('deviceSelected', this.selectedDeviceId)
     },
     createStrip(device) {
@@ -103,8 +111,12 @@ export default {
       window.strip = strip
       this.strip = strip
       this.connected = true
+      if (!this.realMac) {
+        const found = this.devices.find(d => d.deviceName === device.name)
+        this.realMac = found ? found.deviceId : null
+      }
       localStorage.setItem(LAST_DEVICE_KEY, JSON.stringify({
-        id: device.id,
+        id: this.realMac || device.id,
         name: device.name,
       }))
       // Watch for disconnection
@@ -115,6 +127,11 @@ export default {
         this.connected = true
       })
     },
+    copyMac() {
+      navigator.clipboard.writeText(this.realMac || this.strip.device.id)
+      this.macCopied = true
+      setTimeout(() => { this.macCopied = false }, 1500)
+    },
     disconnect() {
       if (this.strip?.server?.connected) {
         this.strip.server.disconnect()
@@ -124,6 +141,7 @@ export default {
       this.scanning = false
       this.devices = []
       this.selectedDeviceId = ''
+      this.realMac = null
       window.strip = null
     },
   },
@@ -137,10 +155,11 @@ export default {
       const saved = localStorage.getItem(LAST_DEVICE_KEY)
       if (saved) {
         try {
-          const { id } = JSON.parse(saved)
-          const match = devices.find(d => d.deviceId === id)
+          const { id, name } = JSON.parse(saved)
+          const match = devices.find(d => d.deviceId === id) || devices.find(d => d.deviceName === name)
           if (match) {
             this.selectedDeviceId = match.deviceId
+            this.realMac = match.deviceId
             electronAPI.send('deviceSelected', match.deviceId)
             return
           }

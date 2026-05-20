@@ -1,6 +1,7 @@
 <template>
-  <div class="card bg-dark border-secondary">
+  <div :class="inline ? '' : 'card bg-dark border-secondary'">
     <div
+      v-if="!inline"
       class="card-header d-flex align-items-center"
       style="cursor:pointer"
       @click="expanded = !expanded"
@@ -10,7 +11,7 @@
       <span class="ms-auto text-secondary small">{{ expanded ? '▲' : '▼' }}</span>
     </div>
 
-    <div v-if="expanded" class="card-body">
+    <div v-if="inline || expanded" :class="inline ? '' : 'card-body'">
       <video ref="videoEl" style="display:none"></video>
 
       <div class="d-flex gap-2 align-items-center mb-3">
@@ -98,6 +99,7 @@ export default {
   name: 'LightSync',
   props: {
     strip: { type: Object, required: true },
+    inline: { type: Boolean, default: false },
   },
   data: () => ({
     expanded: false,
@@ -168,7 +170,7 @@ export default {
         else if (Array.isArray(data)) data = { palettes: data, settings: {} }
         const plainMapping = JSON.parse(JSON.stringify(this.mapping))
         data.settings = { ...(data.settings || {}), syncMapping: plainMapping }
-        await window.electronAPI.invoke('savePalettes', data)
+        await window.electronAPI.invoke('savePalettes', JSON.parse(JSON.stringify(data)))
       } catch { /* localStorage still saved */ }
       this.applyMapping()
     },

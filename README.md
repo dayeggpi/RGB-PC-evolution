@@ -5,11 +5,14 @@
 RGB-PC-evolution is a bluetooth based client for Govee LED strips (specifically the Govee Dreamview G1 Pro) based on the amazing work from https://github.com/ib0b/RGB-PC.
 This is based on reverse engineering the requests from android and translating them to PC. Thanks to [BeauJBurroughs/Govee-H6127-Reverse-Engineering](https://github.com/BeauJBurroughs/Govee-H6127-Reverse-Engineering) and [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering)
 
-<img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_48DlYu8bhk.png">
-<img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_FNFEcAu1Wl.png">
-<img width="1116" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_vzkXTXpVvi.png">
-
-
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_PhSwguuL2t.png">
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_5CEaqROx09.png">
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_FcC3Jl4UGW.png">
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_2DOKkk0t3w.png">
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_18vd52WJ6q.png">
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_Fb1N5j60kC.png">
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_1zFl1RsBWC.png">
+<img width="800" alt="image" src="https://raw.githubusercontent.com/dayeggpi/RGB-PC-evolution/refs/heads/master/RGB-PC-evolution_BixkcF4XcA.png">
 ### Features
 
 - [x] Keep alive
@@ -17,9 +20,12 @@ This is based on reverse engineering the requests from android and translating t
 - [x] Change Color (per segment, or full)
 - [x] Save palettes
 - [x] Set global brightness
-- [ ] Music Modes (WIP)
-- [ ] Change Scenes (WIP)
-- [x] Sync Colors to your display border,each segement with different focus area. <em>~Experimental</em>
+- [x] Music Modes — 8 styles (Rhythm, Windmill, Hooray, Sprouting, Expansion, Torch, Flowing, Hopping) with heavy bass toggle, calm/dynamic modes, CW/CCW direction, 2–8 custom colors, sensitivity slider
+- [x] Scenes — 30+ built-in scenes across 5 categories (Life, Festival, Funny, Emotion, Games)
+- [x] Color Schemes — 12 color schemes × 7 combination types (analogous, complementary, split complementary, etc.), preview before applying
+- [x] System-wide hotkeys for music styles and scenes (work across all apps)
+- [x] Ambilight Sync — sync LED colors to screen border regions
+- [x] Shows real device MAC address when connected
 
 ---
 
@@ -39,22 +45,27 @@ See the [releases page](https://github.com/dayeggpi/RGB-PC-evolution/releases)
 
 <ol>
   <li>Open RGB-PC-evolution</li>
-  <li>Click scan, you should have a bluetooth enable PC/Laptop</li>
-  <li>Connect to you govee device.</li>
-  <li>A menu should appear with the settings of the led controller.</li>
-  <li>For video sync, use the segment buttons to identify the segment numbers along the strip, and input them based on location then Click [SAVE].Choose the screen/display if you have multiple displays. Then click [Sync Colors] to start sync</li>
+  <li>Click scan — requires a Bluetooth-enabled PC/Laptop</li>
+  <li>Connect to your Govee device</li>
+  <li>A panel appears with all controls</li>
 </ol>
+
+**Color tab** — Set individual segment colors or apply a full color. Save/load palettes.
+
+**Scenes tab** — Pick from 30+ built-in light scenes grouped by category. Click Enable to activate. Assign system-wide hotkeys per scene so you can trigger them from any app.
+
+**Music tab** — Choose one of 8 music-reactive styles. Adjust heavy bass, mode (dynamic/calm), direction (CW/CCW), colors (2–8), and sensitivity. Assign system-wide hotkeys per style to switch on the fly.
+
+**Schemes tab** — Generate color palettes from 12 preset schemes combined with 7 harmonic patterns. Preview the result, then apply to the full strip.
+
+**Ambilight tab** — Map each LED segment to a screen region. Select your display and click Sync — LEDs mirror the dominant color of their mapped region in real time.
+
+**Debug tab** — Send raw hex packets one-by-one or as a batch (one per line).
 
 ## Known issues
 
 - They video sync mode is slow, because the controller has an internal queue that is dequeued approx 50ms, hence can only be updated about every 500ms (for every 15 sections for some strips), to avoid huge backlog of messages in the controller queue.
 - Does not support all devices, use with caution. Sending wrong bluetooth command is unlikely to ruin your controller, but still possible.
-
-## Need help on improvements
-
-- Faster video sync implementation,the new UDP/LAN API sadly does not have individual section command.(Even if it did, it's highly likely that the strip controller has a queue, which is the main bottleneck)
-- More CPU efficient color analyser.
-- Add support for more controllers.
 
 ## Building the app (for customisations)
 
@@ -70,10 +81,3 @@ npm run electron:build
 ## Contributing and issues
 
 Please check known issues first and create an issue with reproduceable steps.
-
-## Reverse Engineering
-
-You can capture the bluetooth traffic from your android device and old one works best (Android 4.4 - 6.0) and the view the logs using Wireshark
-See these links for more information:
-- [How to capture Bluetooth packets on Android 4.4](https://www.nowsecure.com/blog/2017/02/07/bluetooth-packet-capture-on-android-4-4/)
-- [How to capture Bluetooth traffic from and to an Android Device?](https://support.honeywellaidc.com/s/article/How-to-capture-Bluetooth-traffic-from-and-to-an-Android-Device)

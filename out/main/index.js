@@ -70,17 +70,33 @@ function toAccelerator(hotkey) {
   const map = { Meta: "Super", Enter: "Return", " ": "Space", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right" };
   return hotkey.split("+").map((p) => map[p] ?? p).join("+");
 }
-electron.ipcMain.handle("registerGlobalShortcuts", (_, shortcuts) => {
-  electron.globalShortcut.unregisterAll();
-  for (const { combo, action } of shortcuts) {
-    if (!combo) continue;
-    try {
-      electron.globalShortcut.register(toAccelerator(combo), () => {
-        electron.BrowserWindow.getAllWindows().forEach((w) => w.webContents.send("shortcutTriggered", action));
-      });
-    } catch {
+const shortcutGroups = /* @__PURE__ */ new Map();
+electron.ipcMain.handle("registerGlobalShortcuts", (_, groupId, shortcuts) => {
+  if (shortcutGroups.has(groupId)) {
+    for (const acc of shortcutGroups.get(groupId)) {
+      try {
+        electron.globalShortcut.unregister(acc);
+      } catch {
+      }
     }
   }
+  const registered = [];
+  const failed = [];
+  for (const { combo, action } of shortcuts) {
+    if (!combo) continue;
+    const acc = toAccelerator(combo);
+    try {
+      const ok = electron.globalShortcut.register(acc, () => {
+        electron.BrowserWindow.getAllWindows().forEach((w) => w.webContents.send("shortcutTriggered", action));
+      });
+      if (ok) registered.push(acc);
+      else failed.push(combo);
+    } catch {
+      failed.push(combo);
+    }
+  }
+  shortcutGroups.set(groupId, registered);
+  return { failed };
 });
 function getIconPath() {
   return electron.app.isPackaged ? path.join(process.resourcesPath, "rgb.ico") : path.join(__dirname, "../../rgb.ico");
@@ -98,6 +114,7 @@ async function createWindow() {
       devTools: false
     }
   });
+  win.webContents.setBackgroundThrottling(false);
   win.webContents.on("before-input-event", (event, input) => {
     const ctrl = input.control || input.meta;
     const k = input.key.toLowerCase();
