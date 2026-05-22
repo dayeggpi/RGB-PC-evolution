@@ -140,6 +140,7 @@ function distributeToSegments(palette, segCount = 24) {
 export default {
   name: 'ColorSchemeControls',
   props: { strip: { type: Object, required: true } },
+  emits: ['colors-applied'],
   data() {
     return {
       SCHEMES,
@@ -166,6 +167,7 @@ export default {
       const segData = {}
       SEG_ALL.forEach((seg, i) => { segData[seg] = this.preview[i] || this.preview[0] })
       await this.strip.setSegments(segData)
+      this.$emit('colors-applied', { ...segData })
       this.applying = false
       this.applied = true
       setTimeout(() => { this.applied = false }, 2000)

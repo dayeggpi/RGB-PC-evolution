@@ -143,7 +143,7 @@ export default {
       window.cap = this.cap
       this.applyMapping()
       this._previewInterval = setInterval(() => {
-        if (this.cap) this.previewColors = { ...this.cap.segData }
+        if (this.cap) this.previewColors = this.cap.segData
       }, 400)
       await this.strip.consumeSegData()
     },

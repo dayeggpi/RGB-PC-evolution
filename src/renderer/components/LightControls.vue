@@ -200,17 +200,29 @@
 
       <!-- ── SCENES TAB ── kept mounted (v-show) so global shortcuts stay registered -->
       <div v-show="tab==='scenes'">
-        <SceneControls :strip="strip" :saved-hotkeys="sceneHotkeys" @hotkeys-changed="onSceneHotkeys" />
+        <SceneControls
+          :strip="strip"
+          :saved-hotkeys="sceneHotkeys"
+          :saved-brightness="sceneBrightness"
+          @hotkeys-changed="onSceneHotkeys"
+          @brightness-changed="onSceneBrightness"
+        />
       </div>
 
       <!-- ── MUSIC TAB ── kept mounted (v-show) so global shortcuts stay registered -->
       <div v-show="tab==='music'">
-        <MusicControls :strip="strip" :saved-hotkeys="musicHotkeys" @hotkeys-changed="onMusicHotkeys" />
+        <MusicControls
+          :strip="strip"
+          :saved-hotkeys="musicHotkeys"
+          :saved-style-settings="musicStyleSettings"
+          @hotkeys-changed="onMusicHotkeys"
+          @settings-changed="onMusicSettings"
+        />
       </div>
 
       <!-- ── SCHEMES TAB ── -->
       <div v-if="tab==='schemes'">
-        <ColorSchemeControls :strip="strip" />
+        <ColorSchemeControls :strip="strip" @colors-applied="onSchemeApplied" />
       </div>
 
       <!-- ── AMBILIGHT TAB ── -->
@@ -354,6 +366,8 @@ export default {
     shortcutFailed:         [],
     sceneHotkeys:           {},
     musicHotkeys:           {},
+    musicStyleSettings:     {},
+    sceneBrightness:        100,
   }),
   watch: {
     // When group buttons (All/None/Left/Right/Strip) change identifiedSegments,
@@ -412,15 +426,15 @@ export default {
       try {
         bytes = this.parseDebugPacket(raw, this.debugColor)
       } catch (e) {
-        this.debugLog.unshift({ ts, raw, hex: null, ok: false, error: e.message })
+        this._pushDebugLog({ ts, raw, hex: null, ok: false, error: e.message })
         return
       }
       const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ')
       try {
         await this.strip.sendRaw(bytes)
-        this.debugLog.unshift({ ts, raw, hex, ok: true })
+        this._pushDebugLog({ ts, raw, hex, ok: true })
       } catch (e) {
-        this.debugLog.unshift({ ts, raw, hex, ok: false, error: e.message })
+        this._pushDebugLog({ ts, raw, hex, ok: false, error: e.message })
       }
     },
 
@@ -434,19 +448,24 @@ export default {
         try {
           bytes = this.parseDebugPacket(line, this.debugColor)
         } catch (e) {
-          this.debugLog.unshift({ ts, raw: line, hex: null, ok: false, error: e.message })
+          this._pushDebugLog({ ts, raw: line, hex: null, ok: false, error: e.message })
           continue
         }
         const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ')
         try {
           await this.strip.sendRaw(bytes)
-          this.debugLog.unshift({ ts, raw: line, hex, ok: true })
+          this._pushDebugLog({ ts, raw: line, hex, ok: true })
         } catch (e) {
-          this.debugLog.unshift({ ts, raw: line, hex, ok: false, error: e.message })
+          this._pushDebugLog({ ts, raw: line, hex, ok: false, error: e.message })
         }
         await new Promise(r => setTimeout(r, 150))
       }
       this.batchRunning = false
+    },
+
+    _pushDebugLog(entry) {
+      this.debugLog.unshift(entry)
+      if (this.debugLog.length > 100) this.debugLog.pop()
     },
 
     async turnOn()  { await this.strip.turnOn() },
@@ -639,6 +658,20 @@ export default {
       this.saveHotkeySettings()
     },
 
+    onMusicSettings(styleSettings) {
+      this.musicStyleSettings = styleSettings
+      this.saveHotkeySettings()
+    },
+
+    onSceneBrightness(b) {
+      this.sceneBrightness = b
+      this.saveHotkeySettings()
+    },
+
+    onSchemeApplied(segData) {
+      this.segmentColors = { ...segData }
+    },
+
     async saveHotkeySettings() {
       let current = {}
       try {
@@ -648,7 +681,13 @@ export default {
       try {
         const data = {
           palettes: this.palettes,
-          settings: { ...current, sceneHotkeys: this.sceneHotkeys, musicHotkeys: this.musicHotkeys },
+          settings: {
+            ...current,
+            sceneHotkeys:       this.sceneHotkeys,
+            musicHotkeys:       this.musicHotkeys,
+            musicStyleSettings: this.musicStyleSettings,
+            sceneBrightness:    this.sceneBrightness,
+          },
         }
         await window.electronAPI.invoke('savePalettes', JSON.parse(JSON.stringify(data)))
       } catch {}
@@ -673,6 +712,8 @@ export default {
           lightOffHotkey:       this.lightOffHotkey,
           sceneHotkeys:         this.sceneHotkeys,
           musicHotkeys:         this.musicHotkeys,
+          musicStyleSettings:   this.musicStyleSettings,
+          sceneBrightness:      this.sceneBrightness,
         },
       }
       try {
@@ -700,6 +741,8 @@ export default {
         this.lightOffHotkey       = settings.lightOffHotkey       || null
         this.sceneHotkeys         = settings.sceneHotkeys         || {}
         this.musicHotkeys         = settings.musicHotkeys         || {}
+        this.musicStyleSettings   = settings.musicStyleSettings   || {}
+        this.sceneBrightness      = settings.sceneBrightness      ?? 100
       }
       this.palettesPath = path
     } catch { /**/ }

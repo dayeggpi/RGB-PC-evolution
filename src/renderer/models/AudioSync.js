@@ -18,6 +18,7 @@ class AudioSync {
     // Circular buffer of bass energy for dynamic beat threshold
     this._energyBuf = new Float32Array(43).fill(50)
     this._energyIdx = 0
+    this._freqBuf = null  // allocated once after analyser is ready
   }
 
   async start(deviceId) {
@@ -40,7 +41,7 @@ class AudioSync {
     this.running = false
     this.stream?.getTracks().forEach(t => t.stop())
     this.ctx?.close().catch(() => {})
-    this.stream = this.ctx = this.analyser = null
+    this.stream = this.ctx = this.analyser = this._freqBuf = null
     this.level = 0
   }
 
@@ -49,7 +50,8 @@ class AudioSync {
     setTimeout(() => {
       if (!this.running) return
       if (this.analyser) {
-        const freq = new Uint8Array(this.analyser.frequencyBinCount)
+        if (!this._freqBuf) this._freqBuf = new Uint8Array(this.analyser.frequencyBinCount)
+        const freq = this._freqBuf
         this.analyser.getByteFrequencyData(freq)
         // Level for UI indicator — always updated
         this.level = Math.min(1, this._avg(freq, 0, freq.length) / 75)

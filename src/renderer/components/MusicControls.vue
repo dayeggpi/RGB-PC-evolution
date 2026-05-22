@@ -70,6 +70,18 @@
       />
     </div>
 
+    <!-- Brightness -->
+    <div class="mb-2 d-flex align-items-center gap-2">
+      <span class="text-secondary" style="font-size:11px;white-space:nowrap">Brightness: {{ brightness }}%</span>
+      <input
+        type="range" min="1" max="100" step="1"
+        class="form-range flex-grow-1"
+        v-model.number="brightness"
+        @change="markDirty"
+        style="height:4px"
+      />
+    </div>
+
     <!-- Colors (2-8) -->
     <div class="mb-2">
       <div class="d-flex align-items-center gap-2 mb-1">
@@ -136,14 +148,16 @@ const TURN_OFF = new Uint8Array(
 export default {
   name: 'MusicControls',
   props: {
-    strip:        { type: Object, required: true },
-    savedHotkeys: { type: Object, default: () => ({}) },
+    strip:              { type: Object, required: true },
+    savedHotkeys:       { type: Object, default: () => ({}) },
+    savedStyleSettings: { type: Object, default: () => ({}) },
   },
-  emits: ['hotkeys-changed'],
+  emits: ['hotkeys-changed', 'settings-changed'],
   data() {
     return {
       MUSIC_STYLES,
       selectedStyleId: 'rhythm',
+      prevStyleId: 'rhythm',
       isOn: false,
       isDirty: false,
       activating: false,
@@ -151,8 +165,10 @@ export default {
       rhythmMode: 'dynamic',
       windmillDir: 'clockwise',
       sensitivity: 100,
+      brightness: 100,
       colors: [...MUSIC_STYLES[0].defaultColors],
       hotkeys: {},
+      styleSettings: {},
       assigningFor: null,
       shortcutFailed: [],
     }
@@ -173,15 +189,44 @@ export default {
         this.registerShortcuts()
       },
     },
+    savedStyleSettings: {
+      immediate: true,
+      handler(v) {
+        this.styleSettings = { ...v }
+        const saved = v[this.selectedStyleId]
+        if (saved) {
+          this.colors      = [...saved.colors]
+          this.heavyBass   = saved.heavyBass   ?? false
+          this.rhythmMode  = saved.rhythmMode  ?? 'dynamic'
+          this.windmillDir = saved.windmillDir ?? 'clockwise'
+          this.sensitivity = saved.sensitivity ?? 100
+          this.brightness  = saved.brightness  ?? 100
+        }
+      },
+    },
   },
   methods: {
     styleName(id) { return MUSIC_STYLES.find(s => s.id === id)?.name || id },
 
     onStyleChange() {
-      if (this.currentStyle) this.colors = [...this.currentStyle.defaultColors]
-      this.heavyBass = false
-      this.rhythmMode = 'dynamic'
-      this.windmillDir = 'clockwise'
+      this._saveCurrentStyle(this.prevStyleId)
+      this.prevStyleId = this.selectedStyleId
+      const saved = this.styleSettings[this.selectedStyleId]
+      if (saved) {
+        this.colors      = [...saved.colors]
+        this.heavyBass   = saved.heavyBass   ?? false
+        this.rhythmMode  = saved.rhythmMode  ?? 'dynamic'
+        this.windmillDir = saved.windmillDir ?? 'clockwise'
+        this.sensitivity = saved.sensitivity ?? 100
+        this.brightness  = saved.brightness  ?? 100
+      } else {
+        if (this.currentStyle) this.colors = [...this.currentStyle.defaultColors]
+        this.heavyBass   = false
+        this.rhythmMode  = 'dynamic'
+        this.windmillDir = 'clockwise'
+        this.sensitivity = 100
+        this.brightness  = 100
+      }
       this.isDirty = false
       this.isOn = false
     },
@@ -205,11 +250,14 @@ export default {
 
     async save() {
       this.isDirty = false
+      this._saveCurrentStyle(this.selectedStyleId)
+      this.$emit('settings-changed', { ...this.styleSettings })
       await this.sendPackets()
     },
 
     async sendPackets() {
       if (!this.currentStyle) return
+      await this.strip.setBrightness(this.brightness)
       const pkts = buildMusicPackets(
         this.currentStyle.styleId,
         this.colors,
@@ -220,6 +268,21 @@ export default {
       for (const pkt of pkts) {
         await this.strip.sendRaw(pkt)
         await new Promise(r => setTimeout(r, 80))
+      }
+    },
+
+    _saveCurrentStyle(styleId) {
+      if (!styleId) return
+      this.styleSettings = {
+        ...this.styleSettings,
+        [styleId]: {
+          colors:      [...this.colors],
+          heavyBass:   this.heavyBass,
+          rhythmMode:  this.rhythmMode,
+          windmillDir: this.windmillDir,
+          sensitivity: this.sensitivity,
+          brightness:  this.brightness,
+        },
       }
     },
 
@@ -255,7 +318,9 @@ export default {
     },
 
     async saveAndRegister() {
+      this._saveCurrentStyle(this.selectedStyleId)
       this.$emit('hotkeys-changed', { ...this.hotkeys })
+      this.$emit('settings-changed', { ...this.styleSettings })
       await this.registerShortcuts()
     },
 
@@ -268,11 +333,15 @@ export default {
         this.isDirty = false
         await this.strip.sendRaw(TURN_OFF)
       } else {
+        const saved = this.styleSettings[styleId] || {}
+        this.prevStyleId     = styleId
         this.selectedStyleId = styleId
-        this.colors = [...style.defaultColors]
-        this.heavyBass = false
-        this.rhythmMode = 'dynamic'
-        this.windmillDir = 'clockwise'
+        this.colors      = [...(saved.colors || style.defaultColors)]
+        this.heavyBass   = saved.heavyBass   ?? false
+        this.rhythmMode  = saved.rhythmMode  ?? 'dynamic'
+        this.windmillDir = saved.windmillDir ?? 'clockwise'
+        this.sensitivity = saved.sensitivity ?? 100
+        this.brightness  = saved.brightness  ?? 100
         this.isDirty = false
         this.activating = true
         await this.sendPackets()

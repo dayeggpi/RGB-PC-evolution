@@ -8,6 +8,8 @@ class Capture {
     this.videoElement = videoElement || null
     this.segData = {}
     this.segments = { left: [], right: [], top: [], bottom: [] }
+    this._canvas = null
+    this._ctx = null
     this.startVideoStream()
   }
 
@@ -23,6 +25,8 @@ class Capture {
       this.stream.getTracks().forEach(t => t.stop())
       this.stream = null
     }
+    this._canvas = null
+    this._ctx = null
   }
 
   async startVideoStream() {
@@ -48,11 +52,16 @@ class Capture {
   }
 
   getVideoFrameBase64() {
-    const canvas = document.createElement('canvas')
-    canvas.width = this.videoElement.videoWidth
-    canvas.height = this.videoElement.videoHeight
-    canvas.getContext('2d').drawImage(this.videoElement, 0, 0)
-    return canvas.toDataURL('image/png').split('base64,')[1]
+    const w = this.videoElement.videoWidth
+    const h = this.videoElement.videoHeight
+    if (!this._canvas) {
+      this._canvas = document.createElement('canvas')
+      this._ctx = this._canvas.getContext('2d')
+    }
+    if (this._canvas.width !== w) this._canvas.width = w
+    if (this._canvas.height !== h) this._canvas.height = h
+    this._ctx.drawImage(this.videoElement, 0, 0)
+    return this._canvas.toDataURL('image/jpeg', 0.7).split('base64,')[1]
   }
 
   async getSegmentColors() {

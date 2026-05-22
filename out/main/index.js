@@ -51,17 +51,24 @@ electron.ipcMain.handle("getDesktopSources", async () => {
 });
 electron.ipcMain.handle("processFrame", async (_, { frameBase64, crops }) => {
   const buffer = Buffer.from(frameBase64, "base64");
-  const hex = (c) => c.toString(16).padStart(2, "0");
+  const { data: raw, info } = await sharp(buffer).flatten({ background: "#000000" }).modulate({ saturation: 2.5 }).raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const hex = (c) => Math.round(c).toString(16).padStart(2, "0");
   const segData = {};
-  for (const [segKey, { left, top, width, height }] of Object.entries(crops)) {
-    try {
-      const cropped = await sharp(buffer).extract({ left, top, width, height }).toBuffer();
-      const boosted = await sharp(cropped).modulate({ saturation: 2.5 }).toBuffer();
-      const { dominant } = await sharp(boosted).stats();
-      segData[segKey] = `#${hex(dominant.r)}${hex(dominant.g)}${hex(dominant.b)}`;
-    } catch {
-      segData[segKey] = "#000000";
+  for (const [segKey, crop] of Object.entries(crops)) {
+    const x2 = Math.min(crop.left + crop.width, width);
+    const y2 = Math.min(crop.top + crop.height, height);
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let y = crop.top; y < y2; y++) {
+      for (let x = crop.left; x < x2; x++) {
+        const i = (y * width + x) * channels;
+        r += raw[i];
+        g += raw[i + 1];
+        b += raw[i + 2];
+        n++;
+      }
     }
+    segData[segKey] = n > 0 ? `#${hex(r / n)}${hex(g / n)}${hex(b / n)}` : "#000000";
   }
   return segData;
 });

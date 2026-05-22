@@ -42,6 +42,18 @@
       >×</button>
     </div>
 
+    <!-- Brightness -->
+    <div class="mb-2 d-flex align-items-center gap-2">
+      <span class="text-secondary" style="font-size:11px;white-space:nowrap">Brightness: {{ brightness }}%</span>
+      <input
+        type="range" min="1" max="100" step="1"
+        class="form-range flex-grow-1"
+        v-model.number="brightness"
+        @change="onBrightnessChange"
+        style="height:4px"
+      />
+    </div>
+
     <!-- All assigned hotkeys overview -->
     <div v-if="Object.keys(hotkeys).length" class="mb-1">
       <div class="text-secondary mb-1" style="font-size:10px">Assigned hotkeys:</div>
@@ -81,16 +93,18 @@ const TURN_OFF = new Uint8Array('3301000000000000000000000000000000000032'.match
 export default {
   name: 'SceneControls',
   props: {
-    strip: { type: Object, required: true },
-    savedHotkeys: { type: Object, default: () => ({}) },
+    strip:           { type: Object, required: true },
+    savedHotkeys:    { type: Object, default: () => ({}) },
+    savedBrightness: { type: Number, default: 100 },
   },
-  emits: ['hotkeys-changed'],
+  emits: ['hotkeys-changed', 'brightness-changed'],
   data() {
     return {
       SCENE_CATEGORIES,
       selectedKey: '',
       activeKey: null,
       sending: false,
+      brightness: 100,
       assigningFor: null,
       hotkeys: {},
       shortcutFailed: [],
@@ -108,6 +122,10 @@ export default {
         this.registerShortcuts()
       },
     },
+    savedBrightness: {
+      immediate: true,
+      handler(v) { this.brightness = v ?? 100 },
+    },
   },
   methods: {
     sceneName(key) { return ALL_SCENES.find(s => s.key === key)?.name || key },
@@ -124,6 +142,7 @@ export default {
       const scene = ALL_SCENES.find(s => s.key === key)
       if (!scene || this.sending) return
       this.sending = true
+      await this.strip.setBrightness(this.brightness)
       for (const hex of scene.packets) {
         const bytes = new Uint8Array(hex.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)))
         await this.strip.sendRaw(bytes)
@@ -131,6 +150,10 @@ export default {
       }
       this.activeKey = key
       this.sending = false
+    },
+
+    onBrightnessChange() {
+      this.$emit('brightness-changed', this.brightness)
     },
 
     async disable() {
