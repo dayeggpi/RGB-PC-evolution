@@ -211,6 +211,20 @@ async function createWindow() {
   }
 }
 
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
+    }
+  })
+}
+
 app.on('will-quit', () => globalShortcut.unregisterAll())
 
 // Window is hidden, not closed — this event won't fire during normal use

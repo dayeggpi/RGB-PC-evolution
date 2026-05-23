@@ -175,6 +175,19 @@ async function createWindow() {
     win.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 }
+const gotLock = electron.app.requestSingleInstanceLock();
+if (!gotLock) {
+  electron.app.quit();
+} else {
+  electron.app.on("second-instance", () => {
+    const win = electron.BrowserWindow.getAllWindows()[0];
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
+  });
+}
 electron.app.on("will-quit", () => electron.globalShortcut.unregisterAll());
 electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") electron.app.quit();
